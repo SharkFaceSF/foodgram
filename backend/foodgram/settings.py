@@ -10,7 +10,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", get_random_secret_key())
 DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = os.getenv(
-    "DJANGO_ALLOWED_HOSTS", "89.169.189.129,127.0.0.1,localhost"
+    "DJANGO_ALLOWED_HOSTS", "89.169.189.129,127.0.0.1,localhost,foodgramcoolproject.hopto.org"
 ).split(",")
 
 INSTALLED_APPS = [
