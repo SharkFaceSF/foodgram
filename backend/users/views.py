@@ -1,10 +1,13 @@
-from rest_framework import viewsets, status
+from djoser.views import UserViewSet as DjoserUserViewSet
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from djoser.views import UserViewSet as DjoserUserViewSet
-from .models import User, Follow
-from .serializers import UserWithRecipesSerializer, SetAvatarSerializer, SetPasswordSerializer
+
+from .models import Follow, User
+from .serializers import (SetAvatarSerializer, SetPasswordSerializer,
+                          UserWithRecipesSerializer)
+
 
 class UserViewSet(DjoserUserViewSet):
     queryset = User.objects.all()
@@ -32,17 +35,17 @@ class UserViewSet(DjoserUserViewSet):
         author = self.get_object()
         if request.method == 'POST':
             if request.user == author or Follow.objects.filter(user=request.user, author=author).exists():
-                return Response({'errors': 'Cannot subscribe'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'errors': 'Нельзя подписаться'}, status=status.HTTP_400_BAD_REQUEST)
             Follow.objects.create(user=request.user, author=author)
             serializer = UserWithRecipesSerializer(author, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         follow = Follow.objects.filter(user=request.user, author=author)
         if not follow.exists():
-            return Response({'errors': 'Not subscribed'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'errors': 'Не подписан'}, status=status.HTTP_400_BAD_REQUEST)
         follow.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=False, methods=['put', 'delete'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['put', 'delete'], permission_classes=[IsAuthenticated], url_path='me/avatar')
     def me_avatar(self, request):
         if request.method == 'PUT':
             serializer = SetAvatarSerializer(request.user, data=request.data, partial=True)
@@ -57,7 +60,7 @@ class UserViewSet(DjoserUserViewSet):
         serializer = SetPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if not request.user.check_password(serializer.data['current_password']):
-            return Response({'current_password': 'Wrong password'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'current_password': 'Неверный пароль'}, status=status.HTTP_400_BAD_REQUEST)
         request.user.set_password(serializer.data['new_password'])
         request.user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)

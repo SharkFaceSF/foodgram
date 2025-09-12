@@ -1,27 +1,40 @@
-from django.http import HttpResponse
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
-from django_filters.rest_framework import DjangoFilterBackend
-from .models import Tag, Ingredient, Recipe, Favorite, ShoppingCart, RecipeIngredient
-from .serializers import TagSerializer, IngredientSerializer, RecipeSerializer, RecipeMinifiedSerializer
-from .permissions import IsAdminOrReadOnly, IsAuthorOrReadOnly
-from .filters import RecipeFilter, IngredientFilter
-from django.db.models import Sum
 from io import BytesIO
+
+from django.db.models import Sum
+from django.http import HttpResponse
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import (AllowAny, IsAuthenticated,
+                                        IsAuthenticatedOrReadOnly)
+from rest_framework.response import Response
+
+from .filters import IngredientFilter, RecipeFilter
+from .models import (Favorite, Ingredient, Recipe, RecipeIngredient,
+                     ShoppingCart, Tag)
+from .permissions import IsAdminOrReadOnly, IsAuthorOrReadOnly
+from .serializers import (IngredientSerializer, RecipeMinifiedSerializer,
+                          RecipeSerializer, TagSerializer)
+
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [AllowAny]
+    pagination_class = None
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    permission_classes = [IsAdminOrReadOnly]
-    filter_backends = [DjangoFilterBackend]
-    filterset_class = IngredientFilter
+    permission_classes = [AllowAny]
+    pagination_class = None
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        name = self.request.query_params.get('name')
+        if name:
+            queryset = queryset.filter(name__istartswith=name)
+        return queryset
 
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
@@ -43,12 +56,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if request.method == 'POST':
             _, created = model.objects.get_or_create(user=request.user, recipe=recipe)
             if not created:
-                return Response({'errors': 'Already added'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'errors': 'Уже добавлено'}, status=status.HTTP_400_BAD_REQUEST)
             serializer = RecipeMinifiedSerializer(recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         obj = model.objects.filter(user=request.user, recipe=recipe)
         if not obj.exists():
-            return Response({'errors': 'Not added'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'errors': 'Не добавлено'}, status=status.HTTP_400_BAD_REQUEST)
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -58,12 +71,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'ingredient__name', 'ingredient__measurement_unit'
         ).annotate(amount=Sum('amount')).order_by('ingredient__name')
 
-        content = 'Shopping List\n\n'
+        content = 'Список покупок\n\n'
         for ing in ingredients:
             content += f"{ing['ingredient__name']} ({ing['ingredient__measurement_unit']}) - {ing['amount']}\n"
 
         response = HttpResponse(content, content_type='text/plain')
-        response['Content-Disposition'] = 'attachment; filename="shopping_cart.txt"'
+        response['Content-Disposition'] = 'attachment; filename="список_покупок.txt"'
         return response
 
     @action(detail=True, methods=['get'], url_path='get-link')

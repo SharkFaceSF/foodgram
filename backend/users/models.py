@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+
 class User(AbstractUser):
     email = models.EmailField(unique=True, max_length=254)
     username = models.CharField(unique=True, max_length=150)
@@ -20,5 +21,5 @@ class Follow(models.Model):
     class Meta:
         unique_together = ['user', 'author']
         constraints = [
-            models.CheckConstraint(check=~models.Q(user=models.F('author')), name='no_self_follow')
+            models.CheckConstraint(check=~models.Q(user=models.F('author')), name='запрет_подписки_на_себя')
         ]

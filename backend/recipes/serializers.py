@@ -1,6 +1,9 @@
-from rest_framework import serializers
 from drf_base64.fields import Base64ImageField
-from .models import Tag, Ingredient, Recipe, RecipeIngredient, Favorite, ShoppingCart
+from rest_framework import serializers
+
+from .models import (Favorite, Ingredient, Recipe, RecipeIngredient,
+                     ShoppingCart, Tag)
+
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -56,16 +59,17 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if 'ingredients' not in self.initial_data or not self.initial_data['ingredients']:
-            raise serializers.ValidationError('Ingredients required')
+            raise serializers.ValidationError('Требуются ингредиенты')
         if 'tags' not in self.initial_data or not self.initial_data['tags']:
-            raise serializers.ValidationError('Tags required')
+            raise serializers.ValidationError('Требуются теги')
         ingredients = self.initial_data['ingredients']
         ingredient_ids = [item['id'] for item in ingredients]
         if len(ingredient_ids) != len(set(ingredient_ids)):
-            raise serializers.ValidationError('Duplicate ingredients')
+            raise serializers.ValidationError('Дублирующиеся ингредиенты')
         for item in ingredients:
-            if item['amount'] < 1:
-                raise serializers.ValidationError('Amount >=1')
+            amount = int(item['amount'])
+            if amount < 1:
+                raise serializers.ValidationError('Количество должно быть не менее 1.')
         return data
 
     def create(self, validated_data):

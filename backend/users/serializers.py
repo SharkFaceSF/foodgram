@@ -1,7 +1,9 @@
-from rest_framework import serializers
 from djoser.serializers import UserCreateSerializer
 from drf_base64.fields import Base64ImageField
-from .models import User, Follow
+from rest_framework import serializers
+
+from .models import Follow, User
+
 
 class CustomUserSerializer(serializers.ModelSerializer):
     is_subscribed = serializers.SerializerMethodField()

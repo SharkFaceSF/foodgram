@@ -1,18 +1,19 @@
 import json
 from pathlib import Path
+
 from django.core.management.base import BaseCommand
 from recipes.models import Ingredient
 
+
 class Command(BaseCommand):
-    help = 'Load ingredients from JSON file'
 
     def handle(self, *args, **kwargs):
         BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent
-        with open(BASE_DIR / 'data' / 'ingredients.json', 'r', encoding='utf-8') as f:
+        with open('/app/data/ingredients.json', 'r', encoding='utf-8') as f:
             data = json.load(f)
             for item in data:
                 Ingredient.objects.get_or_create(
                     name=item['name'],
                     measurement_unit=item['measurement_unit']
                 )
-        self.stdout.write(self.style.SUCCESS(f'Loaded {len(data)} ingredients'))
+        self.stdout.write(self.style.SUCCESS(f'Загружено {len(data)} ингредиентов'))
