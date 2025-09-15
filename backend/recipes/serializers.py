@@ -47,12 +47,11 @@ class RecipeSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, read_only=True)
     ingredients = IngredientInRecipeSerializer(
         many=True,
-        source="recipeingredient_set",
         read_only=True,
     )
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
-    image = Base64ImageField(required=False)
+    image = Base64ImageField()
 
     class Meta:
         model = Recipe
@@ -91,22 +90,52 @@ class RecipeSerializer(serializers.ModelSerializer):
         return False
 
     def validate(self, data):
+        if "image" not in self.initial_data or self.initial_data[
+            "image"
+        ] is None:
+            raise serializers.ValidationError("Поле image обязательно")
+
         if "ingredients" not in self.initial_data or not self.initial_data[
             "ingredients"
         ]:
             raise serializers.ValidationError("Требуются ингредиенты")
-        if "tags" not in self.initial_data or not self.initial_data["tags"]:
-            raise serializers.ValidationError("Требуются теги")
+
         ingredients = self.initial_data["ingredients"]
         ingredient_ids = [item["id"] for item in ingredients]
         if len(ingredient_ids) != len(set(ingredient_ids)):
             raise serializers.ValidationError("Дублирующиеся ингредиенты")
+
+        existing_ingredients = Ingredient.objects.filter(
+            id__in=ingredient_ids).values_list('id', flat=True)
+        missing_ingredients = set(ingredient_ids) - set(existing_ingredients)
+        if missing_ingredients:
+            raise serializers.ValidationError(
+                "Такого ингредиента не существует"
+            )
+
         for item in ingredients:
             amount = int(item["amount"])
             if amount < 1:
                 raise serializers.ValidationError(
                     "Количество должно быть не менее 1."
                 )
+
+        if "tags" not in self.initial_data or not self.initial_data["tags"]:
+            raise serializers.ValidationError("Требуются теги")
+
+        tags = self.initial_data["tags"]
+        if len(tags) != len(set(tags)):
+            raise serializers.ValidationError("Дублирующиеся теги")
+
+        existing_tags = Tag.objects.filter(id__in=tags).values_list(
+            'id', flat=True
+        )
+        missing_tags = set(tags) - set(existing_tags)
+        if missing_tags:
+            raise serializers.ValidationError(
+                "Такого тэга не существует"
+            )
+
         return data
 
     def create(self, validated_data):
@@ -132,7 +161,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         if tags:
             instance.tags.set(tags)
         if ingredients:
-            instance.recipeingredient_set.all().delete()
+            instance.ingredients.all().delete()
             for item in ingredients:
                 RecipeIngredient.objects.create(
                     recipe=instance,

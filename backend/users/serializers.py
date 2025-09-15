@@ -1,3 +1,4 @@
+from django.core.validators import RegexValidator
 from djoser.serializers import UserCreateSerializer
 from drf_base64.fields import Base64ImageField
 from rest_framework import serializers
@@ -29,9 +30,27 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
 
 class CustomUserCreateSerializer(UserCreateSerializer):
+    username = serializers.CharField(
+        max_length=150,
+        validators=[
+            RegexValidator(
+                regex=r'^[\w.@+-]+\Z',
+                message='Недопустимый формат имени пользователя.',
+                code='invalid_username'
+            )
+        ]
+    )
+
     class Meta:
         model = User
-        fields = ("email", "username", "first_name", "last_name", "password")
+        fields = (
+            "id",
+            "email",
+            "username",
+            "first_name",
+            "last_name",
+            "password"
+        )
 
 
 class SetAvatarSerializer(serializers.ModelSerializer):
@@ -44,7 +63,7 @@ class SetAvatarSerializer(serializers.ModelSerializer):
 
 class UserWithRecipesSerializer(CustomUserSerializer):
     recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.IntegerField(read_only=True)
+    recipes_count = serializers.SerializerMethodField()
 
     class Meta(CustomUserSerializer.Meta):
         fields = CustomUserSerializer.Meta.fields + (

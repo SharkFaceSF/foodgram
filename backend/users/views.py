@@ -1,6 +1,7 @@
 from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -12,6 +13,8 @@ from .serializers import (SetAvatarSerializer, SetPasswordSerializer,
 class UserViewSet(DjoserUserViewSet):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
+    pagination_class = LimitOffsetPagination
+    page_size_query_param = 'limit'
 
     def get_permissions(self):
         if self.action in ["list", "retrieve", "create"]:
@@ -98,7 +101,6 @@ class UserViewSet(DjoserUserViewSet):
             serializer = SetAvatarSerializer(
                 request.user,
                 data=request.data,
-                partial=True,
             )
             serializer.is_valid(raise_exception=True)
             serializer.save()
