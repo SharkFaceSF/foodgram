@@ -10,7 +10,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", get_random_secret_key())
 DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = os.getenv(
-    "DJANGO_ALLOWED_HOSTS", "89.169.189.129,127.0.0.1,localhost,foodgramcoolproject.hopto.org"
+    "DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost"
 ).split(",")
 
 INSTALLED_APPS = [
@@ -85,7 +85,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-LANGUAGE_CODE = "ru-RU"
+LANGUAGE_CODE = "en-US"
 
 TIME_ZONE = "Europe/Moscow"
 
@@ -104,7 +104,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "users.User"
 
-AUTHENTICATION_BACKENDS = ["users.auth.EmailBackend"]
+AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.ModelBackend"]
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
@@ -125,12 +125,13 @@ DJOSER = {
     "LOGIN_FIELD": "email",
     "HIDE_USERS": False,
     "SERIALIZERS": {
-        "user_create": "users.serializers.CustomUserCreateSerializer",
-        "user": "users.serializers.CustomUserSerializer",
-        "current_user": "users.serializers.CustomUserSerializer",
+        "user_create": "djoser.serializers.UserCreateSerializer",
+        "user": "users.serializers.AnyUserSerializer",
+        "current_user": "users.serializers.AnyUserSerializer",
     },
     "PERMISSIONS": {
         "user": ["rest_framework.permissions.IsAuthenticated"],
+        "user_list": ["rest_framework.permissions.AllowAny"],
     },
 }
 

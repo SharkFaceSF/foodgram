@@ -1,12 +1,19 @@
-from django.core.validators import RegexValidator
-from djoser.serializers import UserCreateSerializer
 from drf_base64.fields import Base64ImageField
+from recipes.models import Recipe
 from rest_framework import serializers
 
 from .models import Follow, User
 
 
-class CustomUserSerializer(serializers.ModelSerializer):
+class RecipeMinifiedSerializer(serializers.ModelSerializer):
+    image = Base64ImageField()
+
+    class Meta:
+        model = Recipe
+        fields = ("id", "name", "image", "cooking_time")
+
+
+class AnyUserSerializer(serializers.ModelSerializer):
     is_subscribed = serializers.SerializerMethodField()
     avatar = Base64ImageField(required=False)
 
@@ -23,33 +30,11 @@ class CustomUserSerializer(serializers.ModelSerializer):
         )
 
     def get_is_subscribed(self, obj):
-        user = self.context["request"].user
-        if user.is_anonymous:
-            return False
-        return Follow.objects.filter(user=user, author=obj).exists()
-
-
-class CustomUserCreateSerializer(UserCreateSerializer):
-    username = serializers.CharField(
-        max_length=150,
-        validators=[
-            RegexValidator(
-                regex=r'^[\w.@+-]+\Z',
-                message='Недопустимый формат имени пользователя.',
-                code='invalid_username'
-            )
-        ]
-    )
-
-    class Meta:
-        model = User
-        fields = (
-            "id",
-            "email",
-            "username",
-            "first_name",
-            "last_name",
-            "password"
+        request = self.context.get("request")
+        return (
+            request
+            and request.user.is_authenticated
+            and Follow.objects.filter(user=request.user, author=obj).exists()
         )
 
 
@@ -61,29 +46,23 @@ class SetAvatarSerializer(serializers.ModelSerializer):
         fields = ("avatar",)
 
 
-class UserWithRecipesSerializer(CustomUserSerializer):
+class UserWithRecipesSerializer(AnyUserSerializer):
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
 
-    class Meta(CustomUserSerializer.Meta):
-        fields = CustomUserSerializer.Meta.fields + (
-            "recipes", "recipes_count"
+    class Meta(AnyUserSerializer.Meta):
+        fields = AnyUserSerializer.Meta.fields + (
+            "recipes",
+            "recipes_count"
         )
 
     def get_recipes(self, obj):
-        from recipes.serializers import RecipeMinifiedSerializer
-
         request = self.context.get("request")
         limit = request.query_params.get("recipes_limit")
         recipes = obj.recipes.all()
         if limit:
-            recipes = recipes[: int(limit)]
+            recipes = recipes[:int(limit)]
         return RecipeMinifiedSerializer(recipes, many=True).data
 
     def get_recipes_count(self, obj):
         return obj.recipes.count()
-
-
-class SetPasswordSerializer(serializers.Serializer):
-    current_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)

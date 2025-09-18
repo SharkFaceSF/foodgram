@@ -1,11 +1,17 @@
+from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from django.db import models
-from users.models import User
+
+from .constants import (INGREDIENT_NAME_MAX_LENGTH, INGREDIENT_UNIT_MAX_LENGTH,
+                        MIN_VALUE, RECIPE_NAME_MAX_LENGTH, TAG_NAME_MAX_LENGTH,
+                        TAG_SLUG_MAX_LENGTH)
+
+User = get_user_model()
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=200, unique=True)
-    slug = models.SlugField(max_length=200, unique=True)
+    name = models.CharField(max_length=TAG_NAME_MAX_LENGTH, unique=True)
+    slug = models.SlugField(max_length=TAG_SLUG_MAX_LENGTH, unique=True)
 
     class Meta:
         ordering = ["name"]
@@ -15,8 +21,8 @@ class Tag(models.Model):
 
 
 class Ingredient(models.Model):
-    name = models.CharField(max_length=200)
-    measurement_unit = models.CharField(max_length=200)
+    name = models.CharField(max_length=INGREDIENT_NAME_MAX_LENGTH)
+    measurement_unit = models.CharField(max_length=INGREDIENT_UNIT_MAX_LENGTH)
 
     class Meta:
         ordering = ["name"]
@@ -32,11 +38,11 @@ class Recipe(models.Model):
         on_delete=models.CASCADE,
         related_name="recipes",
     )
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=RECIPE_NAME_MAX_LENGTH)
     image = models.ImageField(upload_to="recipes/images/")
     text = models.TextField()
     cooking_time = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)]
+        validators=[MinValueValidator(MIN_VALUE)]
     )
     tags = models.ManyToManyField(Tag, related_name="recipes")
     pub_date = models.DateTimeField(auto_now_add=True)
@@ -59,14 +65,29 @@ class RecipeIngredient(models.Model):
         on_delete=models.PROTECT,
     )
     amount = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)]
+        validators=[MinValueValidator(MIN_VALUE)]
     )
 
     class Meta:
         unique_together = ["recipe", "ingredient"]
 
 
-class Favorite(models.Model):
+class UserRecipeBase(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+    )
+    recipe = models.ForeignKey(
+        Recipe,
+        on_delete=models.CASCADE,
+    )
+
+    class Meta:
+        abstract = True
+        unique_together = ["user", "recipe"]
+
+
+class Favorite(UserRecipeBase):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -78,11 +99,8 @@ class Favorite(models.Model):
         related_name="favorited_by",
     )
 
-    class Meta:
-        unique_together = ["user", "recipe"]
 
-
-class ShoppingCart(models.Model):
+class ShoppingCart(UserRecipeBase):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -93,6 +111,3 @@ class ShoppingCart(models.Model):
         on_delete=models.CASCADE,
         related_name="in_cart",
     )
-
-    class Meta:
-        unique_together = ["user", "recipe"]

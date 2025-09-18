@@ -6,8 +6,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Follow, User
-from .serializers import (SetAvatarSerializer, SetPasswordSerializer,
-                          UserWithRecipesSerializer)
+from .serializers import SetAvatarSerializer, UserWithRecipesSerializer
 
 
 class UserViewSet(DjoserUserViewSet):
@@ -15,11 +14,6 @@ class UserViewSet(DjoserUserViewSet):
     permission_classes = [AllowAny]
     pagination_class = LimitOffsetPagination
     page_size_query_param = 'limit'
-
-    def get_permissions(self):
-        if self.action in ["list", "retrieve", "create"]:
-            return [AllowAny()]
-        return [IsAuthenticated()]
 
     @action(
         detail=False,
@@ -55,21 +49,20 @@ class UserViewSet(DjoserUserViewSet):
     def subscribe(self, request, id=None):
         author = self.get_object()
         if request.method == "POST":
-            if (
-                request.user == author
-                or Follow.objects.filter(
-                    user=request.user,
-                    author=author,
-                ).exists()
-            ):
+            if request.user == author:
                 return Response(
                     {"errors": "Нельзя подписаться"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            Follow.objects.create(
+            follow, created = Follow.objects.get_or_create(
                 user=request.user,
                 author=author,
             )
+            if not created:
+                return Response(
+                    {"errors": "Нельзя подписаться"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             serializer = UserWithRecipesSerializer(
                 author,
                 context={"request": request},
@@ -78,16 +71,15 @@ class UserViewSet(DjoserUserViewSet):
                 serializer.data,
                 status=status.HTTP_201_CREATED,
             )
-        follow = Follow.objects.filter(
+        deleted_count, _ = Follow.objects.filter(
             user=request.user,
             author=author,
-        )
-        if not follow.exists():
+        ).delete()
+        if deleted_count == 0:
             return Response(
                 {"errors": "Не подписан"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        follow.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
@@ -106,23 +98,4 @@ class UserViewSet(DjoserUserViewSet):
             serializer.save()
             return Response(serializer.data)
         request.user.avatar.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @action(
-        detail=False,
-        methods=["post"],
-        permission_classes=[IsAuthenticated],
-    )
-    def set_password(self, request):
-        serializer = SetPasswordSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        if not request.user.check_password(
-            serializer.data["current_password"]
-        ):
-            return Response(
-                {"current_password": "Неверный пароль"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        request.user.set_password(serializer.data["new_password"])
-        request.user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -3,17 +3,22 @@ from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import (AllowAny, IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 
-from .filters import RecipeFilter
+from .filters import IngredientFilter, RecipeFilter
 from .models import (Favorite, Ingredient, Recipe, RecipeIngredient,
                      ShoppingCart, Tag)
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (IngredientSerializer, RecipeMinifiedSerializer,
-                          RecipeSerializer, TagSerializer)
+                          RecipeReadSerializer, RecipeWriteSerializer,
+                          TagSerializer)
+
+
+class CustomPageNumberPagination(PageNumberPagination):
+    page_size_query_param = 'limit'
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -28,26 +33,24 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = IngredientSerializer
     permission_classes = [AllowAny]
     pagination_class = None
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        name = self.request.query_params.get("name")
-        if name:
-            queryset = queryset.filter(name__istartswith=name)
-        return queryset
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = IngredientFilter
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
-    serializer_class = RecipeSerializer
     permission_classes = [
         IsAuthenticatedOrReadOnly,
         IsAuthorOrReadOnly,
     ]
     filter_backends = [DjangoFilterBackend]
     filterset_class = RecipeFilter
-    pagination_class = LimitOffsetPagination
-    page_size_query_param = 'limit'
+    pagination_class = CustomPageNumberPagination
+
+    def get_serializer_class(self):
+        if self.request.method in ("POST", "PATCH"):
+            return RecipeWriteSerializer
+        return RecipeReadSerializer
 
     @action(
         detail=True,
@@ -82,12 +85,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
             serializer = RecipeMinifiedSerializer(recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         obj = model.objects.filter(user=request.user, recipe=recipe)
-        if not obj.exists():
+        deleted = obj.delete()[0]
+        if not deleted:
             return Response(
                 {"errors": "Не добавлено"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
@@ -121,5 +124,5 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="get-link")
     def get_link(self, request, pk):
         recipe = self.get_object()
-        short_link = f"http://{request.get_host()}/recipes/{recipe.id}"
+        short_link = request.build_absolute_uri(f"/recipes/{recipe.id}")
         return Response({"short-link": short_link})

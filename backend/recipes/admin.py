@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Count
 
 from .models import (Favorite, Ingredient, Recipe, RecipeIngredient,
                      ShoppingCart, Tag)
@@ -32,10 +33,13 @@ class RecipeAdmin(admin.ModelAdmin):
     inlines = [RecipeIngredientInline]
     ordering = ("-pub_date",)
 
-    def favorites_count(self, obj):
-        return obj.favorited_by.count()
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.annotate(favorite_count=Count("favorited_by"))
 
-    favorites_count.short_description = "Добавлений в избранное"
+    @admin.display(description="Добавлений в избранное")
+    def favorites_count(self, obj):
+        return obj.favorite_count
 
 
 @admin.register(RecipeIngredient)

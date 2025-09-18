@@ -1,25 +1,37 @@
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import RegexValidator
 from django.db import models
+
+from .constants import (USER_EMAIL_MAX_LENGTH, USER_NAME_MAX_LENGTH,
+                        USER_USERNAME_MAX_LENGTH)
 
 
 class User(AbstractUser):
     email = models.EmailField(
         unique=True,
-        max_length=254,
+        max_length=USER_EMAIL_MAX_LENGTH,
     )
     username = models.CharField(
         unique=True,
-        max_length=150,
+        max_length=USER_USERNAME_MAX_LENGTH,
+        validators=[
+            RegexValidator(
+                regex=r'^[\w.@+-]+\Z',
+                message='Недопустимый формат имени пользователя.',
+                code='invalid_username'
+            )
+        ],
     )
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
+    first_name = models.CharField(max_length=USER_NAME_MAX_LENGTH)
+    last_name = models.CharField(max_length=USER_NAME_MAX_LENGTH)
     avatar = models.ImageField(
         upload_to="users/avatars/",
         null=True,
         blank=True,
     )
 
-    REQUIRED_FIELDS = ["email", "first_name", "last_name"]
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["username", "first_name", "last_name"]
 
     class Meta:
         ordering = ["username"]
