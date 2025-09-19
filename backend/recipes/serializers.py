@@ -24,11 +24,6 @@ class IngredientInRecipeReadSerializer(serializers.ModelSerializer):
         queryset=Ingredient.objects.all()
     )
     amount = serializers.IntegerField(min_value=1)
-
-    class Meta:
-        model = RecipeIngredient
-        fields = ("id", "amount")
-
     name = serializers.ReadOnlyField(source="ingredient.name")
     measurement_unit = serializers.ReadOnlyField(
         source="ingredient.measurement_unit"
@@ -162,7 +157,9 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         tags = validated_data.pop("tags")
         ingredients = validated_data.pop("ingredients")
         instance.tags.set(tags)
-        instance.ingredients.all().delete() # Не могу использовать clear для ingredients, т.к. это не ManyToManyField
+        instance.ingredients.all().delete()
+        # Не могу использовать clear,
+        # т.к. это не ManyToManyField
         self.add_ingredients(instance, ingredients)
         return super().update(instance, validated_data)
 
