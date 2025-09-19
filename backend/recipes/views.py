@@ -3,7 +3,6 @@ from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import (AllowAny, IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
@@ -12,13 +11,10 @@ from .filters import IngredientFilter, RecipeFilter
 from .models import (Favorite, Ingredient, Recipe, RecipeIngredient,
                      ShoppingCart, Tag)
 from .permissions import IsAuthorOrReadOnly
+from .pagination import AnyPageNumberPagination
 from .serializers import (IngredientSerializer, RecipeMinifiedSerializer,
                           RecipeReadSerializer, RecipeWriteSerializer,
                           TagSerializer)
-
-
-class CustomPageNumberPagination(PageNumberPagination):
-    page_size_query_param = 'limit'
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -45,7 +41,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     ]
     filter_backends = [DjangoFilterBackend]
     filterset_class = RecipeFilter
-    pagination_class = CustomPageNumberPagination
+    pagination_class = AnyPageNumberPagination
 
     def get_serializer_class(self):
         if self.request.method in ("POST", "PATCH"):

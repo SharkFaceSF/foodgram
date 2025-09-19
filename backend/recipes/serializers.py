@@ -1,8 +1,8 @@
 from django.db.transaction import atomic
 from drf_base64.fields import Base64ImageField
 from rest_framework import serializers
-from users.serializers import AnyUserSerializer
 
+from users.serializers import AnyUserSerializer
 from .models import (Favorite, Ingredient, Recipe, RecipeIngredient,
                      ShoppingCart, Tag)
 
@@ -19,7 +19,7 @@ class IngredientSerializer(serializers.ModelSerializer):
         fields = ("id", "name", "measurement_unit")
 
 
-class IngredientInRecipeSerializer(serializers.ModelSerializer):
+class IngredientInRecipeReadSerializer(serializers.ModelSerializer):
     id = serializers.PrimaryKeyRelatedField(
         queryset=Ingredient.objects.all()
     )
@@ -29,9 +29,6 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
         model = RecipeIngredient
         fields = ("id", "amount")
 
-
-class IngredientInRecipeReadSerializer(serializers.ModelSerializer):
-    id = serializers.ReadOnlyField(source="ingredient.id")
     name = serializers.ReadOnlyField(source="ingredient.name")
     measurement_unit = serializers.ReadOnlyField(
         source="ingredient.measurement_unit"
@@ -97,11 +94,10 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
 
 class RecipeWriteSerializer(serializers.ModelSerializer):
-    author = AnyUserSerializer(read_only=True)
     tags = serializers.PrimaryKeyRelatedField(
         queryset=Tag.objects.all(), many=True
     )
-    ingredients = IngredientInRecipeSerializer(many=True)
+    ingredients = IngredientInRecipeReadSerializer(many=True)
     image = Base64ImageField()
 
     class Meta:
@@ -109,7 +105,6 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "tags",
-            "author",
             "ingredients",
             "name",
             "image",
@@ -164,13 +159,11 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
     @atomic
     def update(self, instance, validated_data):
-        tags = validated_data.pop("tags", None)
-        ingredients = validated_data.pop("ingredients", None)
-        if tags is not None:
-            instance.tags.set(tags)
-        if ingredients is not None:
-            instance.ingredients.all().delete()
-            self.add_ingredients(instance, ingredients)
+        tags = validated_data.pop("tags")
+        ingredients = validated_data.pop("ingredients")
+        instance.tags.set(tags)
+        instance.ingredients.all().delete() # Не могу использовать clear для ingredients, т.к. это не ManyToManyField
+        self.add_ingredients(instance, ingredients)
         return super().update(instance, validated_data)
 
     def to_representation(self, instance):
